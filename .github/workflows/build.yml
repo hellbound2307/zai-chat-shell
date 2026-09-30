@@ -86,16 +86,32 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
+      # The app's classes land in a multidex shard (classes2.dex etc.), NOT
+      # necessarily classes.dex. A gate that only reads classes.dex cries wolf.
       - name: Verify launcher activity exists in dex
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -f "$APK" || { echo "FAIL: no APK produced"; exit 1; }
-          unzip -p "$APK" classes.dex > /tmp/classes.dex
-          if grep -qa "Lcom/example/MainActivity;" /tmp/classes.dex; then
+          echo "APK: $(du -h "$APK" | cut -f1)"
+          rm -rf /tmp/dexcheck && mkdir -p /tmp/dexcheck
+          unzip -q -o "$APK" 'classes*.dex' -d /tmp/dexcheck
+          echo "dex files: $(ls /tmp/dexcheck | tr '\n' ' ')"
+          if grep -qa "Lcom/example/MainActivity;" /tmp/dexcheck/*.dex; then
             echo "PASS: launcher class present in dex"
           else
             echo "FAIL: launcher class missing from dex"; exit 1
+          fi
+          echo "--- confirm the target URL is compiled in ---"
+          if grep -qa "https://chat.z.ai" /tmp/dexcheck/*.dex; then
+            echo "PASS: chat.z.ai present in dex"
+          else
+            echo "FAIL: chat.z.ai not found in dex"; exit 1
+          fi
+          if grep -qa "gemini.google.com" /tmp/dexcheck/*.dex; then
+            echo "FAIL: stale gemini.google.com still present"; exit 1
+          else
+            echo "PASS: no stale gemini.google.com"
           fi
 
       - name: Upload APK

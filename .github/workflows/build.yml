@@ -114,7 +114,15 @@ jobs:
             echo "PASS: no stale gemini.google.com"
           fi
           echo "--- confirm the new applicationId ---"
-          if unzip -p "$APK" AndroidManifest.xml | strings | grep -qa "com.hellbound.zai.chat"; then
+          # Binary AXML stores its string pool as UTF-16LE, so plain `strings`
+          # finds nothing. Decode it with python instead (iconv's //IGNORE
+          # suffix is not portable, and python3 is always present on runners).
+          unzip -p "$APK" AndroidManifest.xml > /tmp/AndroidManifest.bin
+          if python3 -c "
+import sys
+d = open('/tmp/AndroidManifest.bin','rb').read()
+sys.exit(0 if b'c\x00o\x00m\x00.\x00h\x00e\x00l\x00l\x00b\x00o\x00u\x00n\x00d\x00.\x00z\x00a\x00i' in d else 1)
+"; then
             echo "PASS: applicationId com.hellbound.zai.chat"
           else
             echo "FAIL: new applicationId not found in manifest"; exit 1

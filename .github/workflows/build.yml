@@ -22,12 +22,15 @@ jobs:
         with:
           gradle-version: '9.0.0'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept licenses
+      # android-actions/setup-android@v3 fails on current runners: it calls
+      # `sdkmanager tools`, and the legacy "tools" package was removed from
+      # Google's SDK repository ("Failed to find package 'tools'").
+      # ubuntu-latest already ships a working SDK, so only cmdline-tools is added.
+      - name: Install cmdline-tools
         run: |
+          yes | sdkmanager --install "cmdline-tools;latest"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
 
       - name: Install SDK platform 36.1 + build-tools
         run: |

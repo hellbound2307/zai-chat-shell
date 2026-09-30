@@ -25,16 +25,34 @@ jobs:
       # android-actions/setup-android@v3 fails on current runners: it calls
       # `sdkmanager tools`, and the legacy "tools" package was removed from
       # Google's SDK repository ("Failed to find package 'tools'").
-      # ubuntu-latest already ships a working SDK, so only cmdline-tools is added.
-      - name: Install cmdline-tools
+      # ubuntu-latest already ships a working SDK but does NOT put sdkmanager
+      # on PATH, so resolve it from the SDK root.
+      - name: Set up Android SDK
         run: |
-          yes | sdkmanager --install "cmdline-tools;latest"
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "Using SDK: $SDK"
+          SDKM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1)
+          if [ -z "$SDKM" ]; then
+            echo "sdkmanager not found; installing cmdline-tools"
+            SDKM_TMP=$(mktemp -d)
+            curl -fsSL -o "$SDKM_TMP/ct.zip" \
+              "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
+            unzip -q "$SDKM_TMP/ct.zip" -d "$SDKM_TMP"
+            mkdir -p "$SDK/cmdline-tools/latest"
+            cp -r "$SDKM_TMP/cmdline-tools/." "$SDK/cmdline-tools/latest/"
+            SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          chmod +x "$SDKM"
+          echo "SDKMGR=$SDKM" >> "$GITHUB_ENV"
+          echo "SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "sdkmanager resolved: $SDKM"
+          yes | "$SDKM" --licenses > /dev/null 2>&1 || true
 
       - name: Install SDK platform 36.1 + build-tools
         run: |
-          sdkmanager --install "platforms;android-36.1" "build-tools;36.0.0" "platform-tools"
+          set -euo pipefail
+          "$SDKMGR" --install "platforms;android-36.1" "build-tools;36.0.0" "platform-tools"
 
       # Stable signing identity: generate once, reuse forever via cache.
       # A fresh key per build means every APK is a different app identity and
@@ -57,7 +75,7 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Write local.properties
-        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+        run: echo "sdk.dir=$SDK_ROOT" > local.properties
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace

@@ -14,7 +14,9 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.zaichat.xkjdms"
+    // Distinct from com.aistudio.zaichat.xkjdms (the Gemini build) so both can
+    // be installed side by side. The old app must stay available.
+    applicationId = "com.hellbound.zai.chat"
     minSdk = 24
     targetSdk = 36
     versionCode = 1

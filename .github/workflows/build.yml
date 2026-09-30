@@ -113,6 +113,12 @@ jobs:
           else
             echo "PASS: no stale gemini.google.com"
           fi
+          echo "--- confirm the new applicationId ---"
+          if unzip -p "$APK" AndroidManifest.xml | strings | grep -qa "com.hellbound.zai.chat"; then
+            echo "PASS: applicationId com.hellbound.zai.chat"
+          else
+            echo "FAIL: new applicationId not found in manifest"; exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

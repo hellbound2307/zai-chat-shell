@@ -45,7 +45,9 @@ jobs:
             cp -r "$SDKM_TMP/cmdline-tools/." "$SDK/cmdline-tools/latest/"
             SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
           fi
-          chmod +x "$SDKM"
+          # The runner SDK is not owned by the runner user; sdkmanager is already
+          # executable, and chmod on it fails with "Operation not permitted".
+          chmod +x "$SDKM" 2>/dev/null || true
           echo "SDKMGR=$SDKM" >> "$GITHUB_ENV"
           echo "SDK_ROOT=$SDK" >> "$GITHUB_ENV"
           echo "sdkmanager resolved: $SDKM"

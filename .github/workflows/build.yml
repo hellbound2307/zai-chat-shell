@@ -32,7 +32,9 @@ jobs:
           set -euo pipefail
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           echo "Using SDK: $SDK"
-          SDKM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1)
+          # NOTE: under `set -e` a failing command substitution aborts the whole
+          # step, so the find is guarded with `|| true`.
+          SDKM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort | tail -1 || true)
           if [ -z "$SDKM" ]; then
             echo "sdkmanager not found; installing cmdline-tools"
             SDKM_TMP=$(mktemp -d)

@@ -20,7 +20,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.0.0'
+          # AGP 9.1.1 hard-requires Gradle >= 9.3.1 (enforced by
+          # com.android.internal.version-check).
+          gradle-version: '9.3.1'
 
       # android-actions/setup-android@v3 fails on current runners: it calls
       # `sdkmanager tools`, and the legacy "tools" package was removed from

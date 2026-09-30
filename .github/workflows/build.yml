@@ -1,0 +1,78 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.0'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept licenses
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Install SDK platform 36.1 + build-tools
+        run: |
+          sdkmanager --install "platforms;android-36.1" "build-tools;36.0.0" "platform-tools"
+
+      # Stable signing identity: generate once, reuse forever via cache.
+      # A fresh key per build means every APK is a different app identity and
+      # nothing can upgrade-install over the previous one.
+      - name: Restore signing keystore
+        id: keystore
+        uses: actions/cache@v4
+        with:
+          path: debug.keystore
+          key: zai-debug-keystore-v1
+
+      - name: Generate signing keystore (first run only)
+        if: steps.keystore.outputs.cache-hit != 'true'
+        run: |
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -storepass android -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10950 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Write local.properties
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify launcher activity exists in dex
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK" || { echo "FAIL: no APK produced"; exit 1; }
+          unzip -p "$APK" classes.dex > /tmp/classes.dex
+          if grep -qa "Lcom/example/MainActivity;" /tmp/classes.dex; then
+            echo "PASS: launcher class present in dex"
+          else
+            echo "FAIL: launcher class missing from dex"; exit 1
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: zai-chat-debug
+          path: app/build/outputs/apk/debug/app-debug.apk

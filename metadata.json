@@ -1,0 +1,6 @@
+{
+  "name": "Gemini",
+  "description": "A seamless, full-screen Android application wrapper for Gemini with dark mode and offline support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
